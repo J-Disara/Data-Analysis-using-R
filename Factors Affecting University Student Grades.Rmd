@@ -1,0 +1,369 @@
+---
+title: "The Factors Affecting University Student Grades"
+author: 'Group No: 12'
+date: "2024-06-23"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Data Exploration
+
+
+#### Load the Libraries
+
+```{r }
+
+# Load the necessary libraries
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(corrplot)
+library(reshape2) 
+
+```
+
+#### Load the Dataset
+
+```{r }
+
+# Load the data set
+dataset <- read.csv(file.choose(), header = TRUE)
+
+```
+
+#### Structure of the Dataset
+
+```{r }
+
+# Display structure of the data set
+str(dataset)
+
+```
+
+#### Summary Statistics
+
+```{r }
+
+# Summary statistics of the data set
+summary(dataset)
+
+```
+
+#### Handling Missing Values
+
+```{r }
+
+# Identify numerical variables in the dataset
+numerical_var <- sapply(dataset, is.numeric)
+
+# Extract numerical columns
+numerical_cols <- dataset[, numerical_var]
+
+# Count missing values in each numerical column
+colSums(is.na(numerical_cols))
+
+# Replace missing values with each column median
+numerical_cols <- numerical_cols %>%
+  mutate_all(~ ifelse(is.na(.), median(., na.rm = TRUE), .))
+
+# Verify missing values are handled 
+colSums(is.na(numerical_cols))
+
+# Replace original numerical columns in the dataset with imputed values
+dataset[, names(numerical_cols)] <- numerical_cols
+
+
+# Identify categorical variables in the dataset
+categorical_var <- sapply(dataset, is.factor) | sapply(dataset, is.character)
+
+# Extract categorical columns
+categorical_cols <- dataset[, categorical_var]
+
+# Count empty strings in each categorical column
+colSums(categorical_cols == "")
+
+# Define the impute_mode function to find the mode
+impute_mode <- function(x) {
+  unique_values <- unique(x)
+  mode_value <- unique_values[which.max(tabulate(match(x, unique_values)))]
+  return(mode_value)
+}
+
+# Replace empty strings with impute_mode function
+categorical_cols <- categorical_cols %>%
+  mutate_all(~ ifelse(. == "", impute_mode(.), .))
+
+# Verify empty strings are handled
+colSums(categorical_cols == "")
+
+# Replace original categorical columns in the dataset with imputed values
+dataset[, names(categorical_cols)] <- categorical_cols
+
+```
+
+# Data Preprocessing
+
+
+#### Handling Outliers
+
+```{r }
+
+# Define a function to identify outliers using IQR method
+numerical_outlier_detection  <- function(x) {
+  Q1 <- quantile(x, 0.25)
+  Q3 <- quantile(x, 0.75)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  return(x[x < lower_bound | x > upper_bound])
+}
+
+# Apply numerical_outlier_detection function to each numerical column
+numerical_outliers <- lapply(numerical_cols, numerical_outlier_detection)
+
+# Print the numerical Outliers
+numerical_outliers
+```
+
+### Objective 1: Evaluate the impact of demographic factors such as Age, Gender, Financial Status on the GPA of university students.
+
+```{r }
+
+# Summary statistics for GPA by Age
+age_gpa_summary <- dataset %>%
+  group_by(Age) %>%
+  summarize(
+    Mean_GPA = mean(GPA, na.rm = TRUE),
+    SD_GPA = sd(GPA, na.rm = TRUE),
+    Min_GPA = min(GPA, na.rm = TRUE),
+    Max_GPA = max(GPA, na.rm = TRUE)
+  )
+print(age_gpa_summary)
+
+
+# Summary statistics for GPA by Gender
+gender_gpa_summary <- dataset %>%
+  group_by(Gender) %>%
+  summarize(
+    Mean_GPA = mean(GPA, na.rm = TRUE),
+    SD_GPA = sd(GPA, na.rm = TRUE),
+    Min_GPA = min(GPA, na.rm = TRUE),
+    Max_GPA = max(GPA, na.rm = TRUE)
+  )
+print(gender_gpa_summary)
+
+
+# Summary statistics for GPA by Financial Status
+financial_gpa_summary <- dataset %>%
+  group_by(Financial_Status) %>%
+  summarize(
+    Mean_GPA = mean(GPA, na.rm = TRUE),
+    SD_GPA = sd(GPA, na.rm = TRUE),
+    Min_GPA = min(GPA, na.rm = TRUE),
+    Max_GPA = max(GPA, na.rm = TRUE)
+  )
+print(financial_gpa_summary)
+
+```
+
+### Objective 2: Examine the relationship between psychological factors such as Motivation, Bullying, Stress Levels, Lack of Interest, learning Style on the GPA of university students.
+
+```{r }
+
+# Visualize the relationship between Bullying and GPA
+ggplot(dataset, aes(x = Bullying, y = GPA)) +
+  geom_boxplot() +
+  stat_summary(
+    fun = median,
+    geom = "text",
+    aes(label = round(after_stat(y), 2)),
+    vjust = -1.5,
+    color = "blue"
+  ) +
+  stat_summary(
+    fun.data = function(y) {
+      data.frame(
+        y = quantile(y, 0.75),
+        label = paste("IQR:", round(IQR(y), 2))
+      )
+    },
+    geom = "text",
+    vjust = -0.5,
+    color = "red"
+  ) +
+  labs(title = "GPA by Bullying", x = "Bullying", y = "GPA")
+
+
+# Visualize the relationship between Motivation and GPA
+ggplot(dataset, aes(x = Motivation, y = GPA)) +
+  geom_boxplot() +
+  stat_summary(
+    fun = median,
+    geom = "text",
+    aes(label = round(after_stat(y), 2)),
+    vjust = -1.5,
+    color = "blue"
+  ) +
+  stat_summary(
+    fun.data = function(y) {
+      data.frame(
+        y = quantile(y, 0.75),
+        label = paste("IQR:", round(IQR(y), 2))
+      )
+    },
+    geom = "text",
+    vjust = -0.5,
+    color = "red"
+  ) +
+  labs(title = "GPA by Motivation", x = "Motivation", y = "GPA")
+
+
+# Visualize the relationship between Stress_Levels and GPA
+ggplot(dataset, aes(x = Stress_Levels, y = GPA)) +
+  geom_boxplot() +
+  stat_summary(
+    fun = median,
+    geom = "text",
+    aes(label = round(after_stat(y), 2)),
+    vjust = -1.5,
+    color = "blue"
+  ) +
+  stat_summary(
+    fun.data = function(y) {
+      data.frame(
+        y = quantile(y, 0.75),
+        label = paste("IQR:", round(IQR(y), 2))
+      )
+    },
+    geom = "text",
+    vjust = -0.5,
+    color = "red"
+  ) +
+  labs(title = "GPA by Stress Levels", x = "Stress Levels", y = "GPA")
+
+# Visualize the relationship between Lack_of_Interest and GPA
+ggplot(dataset, aes(x = Lack_of_Interest, y = GPA)) +
+  geom_boxplot() +
+  stat_summary(
+    fun = median,
+    geom = "text",
+    aes(label = round(after_stat(y), 2)),
+    vjust = -1.5,
+    color = "blue"
+  ) +
+  stat_summary(
+    fun.data = function(y) {
+      data.frame(
+        y = quantile(y, 0.75),
+        label = paste("IQR:", round(IQR(y), 2))
+      )
+    },
+    geom = "text",
+    vjust = -0.5,
+    color = "red"
+  ) +
+  labs(title = "GPA by Lack of Interest", x = "Lack of Interest", y = "GPA")
+
+
+# Visualize the relationship between Learning_Style and GPA
+ggplot(dataset, aes(x = Learning_Style, y = GPA)) +
+  geom_boxplot() +
+  stat_summary(
+    fun = median,
+    geom = "text",
+    aes(label = round(after_stat(y), 2)),
+    vjust = -1.5,
+    color = "blue"
+  ) +
+  stat_summary(
+    fun.data = function(y) {
+      data.frame(
+        y = quantile(y, 0.75),
+        label = paste("IQR:", round(IQR(y), 2))
+      )
+    },
+    geom = "text",
+    vjust = -0.5,
+    color = "red"
+  ) +
+  labs(title = "GPA by Learning Style", x = "Lack of Learning Style", y = "GPA")
+
+
+```
+
+### Objective 3: Analyze the correlation between lifestyle factors such as Sleep Hours, Screen Time on the GPA of university students.
+
+```{r }
+
+# Correlation between Sleep_Hours_PerDay and GPA 
+cor(dataset$Sleep_Hours_PerDay, dataset$GPA, use = "complete.obs")
+
+# Correlation between Screen_Time_PerDay and GPA 
+cor(dataset$Screen_Time_PerDay, dataset$GPA, use = "complete.obs")
+
+```
+
+### Objective 4: The influence of academic-related factors such as Previous GPA, Attendance, Study Hours, Class Size on the GPA of university students.
+
+```{r }
+
+# Standardize numerical variables
+dataset[numerical_var] <- scale(dataset[numerical_var])
+
+# Print the summary statistics of standardized numerical variables
+summary(dataset[numerical_var])
+
+```
+
+```{r }
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Split the dataset into training and testing sets (80% train, 20% test)
+train_index <- createDataPartition(dataset$GPA, p = 0.8, list = FALSE)
+train_data <- dataset[train_index, ]
+test_data <- dataset[-train_index, ]
+
+# Fit multiple linear regression model
+lm_model <- lm(GPA ~ Previous_GPA + Attendance + Study_Hours_PerWeek + Class_Size, data = train_data)
+
+# Summarize the model
+summary(lm_model)
+
+```
+
+```{r }
+
+# Predict GPA using the test_data
+predicted_gpa <- predict(lm_model, newdata = test_data)
+
+
+# Calculate Mean Squared Error (MSE)
+mse <- mean((test_data$GPA - predicted_gpa)^2)
+cat("Mean Squared Error (MSE):", mse, "\n")
+
+
+# Calculate Root Mean Squared Error (RMSE)
+rmse <- sqrt(mse)
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+
+# Extract R-squared value from the summary of the linear regression model
+r_squared <- summary(lm_model)$r.squared
+cat("R-Squared:", r_squared, "\n")
+
+```
+
+```{r }
+# Create a data frame to compare actual and predicted values
+comparison <- data.frame(Actual = test_data$GPA, Predicted = predicted_gpa)
+
+# Visualize the comparison of actual vs predicted GPA
+ggplot(comparison, aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  labs(x = "Actual GPA", y = "Predicted GPA") +
+  ggtitle("Actual vs Predicted GPA")
+
+```
